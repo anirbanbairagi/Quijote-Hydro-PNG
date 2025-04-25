@@ -125,7 +125,11 @@ def plot_halo_Pk(snaptype,snapnum, kmax=None, threshold=0, W=False, verbose=True
         Pk0_G = Pk0_G[ind]
     
     figure, axis = plt.subplots(1,2,figsize=(15,5))
-    fNL_dict={'200':200, '100':100, '50':50, '0':0, 'n50':-50, 'n100':-100, 'n200':-200}
+    if snaptype=='LC':
+        fNL_dict={'200':200, '0':0, 'n200':-200}
+    else:
+        fNL_dict={'200':200, 'n200':-200}
+        # fNL_dict={'200':200, '100':100, '50':50, '0':0, 'n50':-50, 'n100':-100, 'n200':-200}
     for fNL in fNL_dict:
         snapdir = "/home/jovyan/L501P/1P_"+snaptype+"_"+fNL+"_50/" #folder hosting the catalogue
         k, Pk0, _, _ = compute_halo_Pk_from_halo_catalog(snapdir, snapnum, threshold=threshold, W=W, verbose=verbose)
@@ -216,7 +220,11 @@ def plot_stellar_to_halo_mass(datadir, snaptype, snapnum=90, binning='log', num_
     a=np.loadtxt("../times_extended.txt")[snapnum]
     z=1/a-1   
     
-    fNL_dict={'200':200, '100':100, '50':50, '0':0, 'n50':-50, 'n100':-100, 'n200':-200}
+    if snaptype=='LC':
+        fNL_dict={'200':200, '0':0, 'n200':-200}
+    else:
+        fNL_dict={'200':200, 'n200':-200}
+        # fNL_dict={'200':200, '100':100, '50':50, '0':0, 'n50':-50, 'n100':-100, 'n200':-200}
     for fNL in fNL_dict:
         if fNL=='0':
             snapdir = datadir+"1P_LC_0_50/" #folder hosting the catalogue
@@ -346,3 +354,212 @@ def specific_SFR_to_stellar_mass_relation(snapdir, snapnum=90, binning='log', nu
     sSFR_avg = np.delete(sSFR_avg,np.argwhere(np.isnan(sSFR_avg)))
     
     return Stellar_mass_bins, sSFR_avg, M_star, sSFR
+
+def plot_hist(datadir, snaptype, snapnum=90, parameter='', xlabel='', threshold=0, num_bins=100, log=False, histtype='step'):
+    
+    """
+    snaptype : {'EQ':"equil", 'LC':"local", 'OR_CMB':"ortho-CMB", 'OR_LSS':"ortho-LSS"}
+    
+    binning : {'log', 'linear'}
+    """
+    snaptype_dict={'EQ':"{equil}", 'LC':"{local}", 'OR_CMB':"{ortho-CMB}", 'OR_LSS':"{ortho-LSS}"}
+    
+    a=np.loadtxt("../times_extended.txt")[snapnum]
+    z=1/a-1   
+    
+       
+    if snaptype=='LC':
+        fNL_dict={'200':200, '0':0, 'n200':-200}
+    else:
+        fNL_dict={'200':200, 'n200':-200}
+        
+    for fNL in fNL_dict:
+        if fNL=='0':
+            snapdir = datadir+"1P_LC_0_50/" #folder hosting the catalogue
+        else:    
+            snapdir = datadir+"1P_"+snaptype+"_"+fNL+"_50/" #folder hosting the catalogue
+        
+        param_g=np.array([])
+        for i in range(16):
+            # catalog name
+            catalog = snapdir+'groups_'+str(snapnum).zfill(3)+'/fof_subhalo_tab_'+str(snapnum).zfill(3)+'.'+str(i)+'.hdf5'
+
+            # open the catalogue
+            f = h5py.File(catalog, 'r')
+            param = f[parameter][()]         
+            param_g=np.hstack([param_g,param])
+            
+            # close file
+            f.close()
+        
+        if threshold:
+            ind = np.where(param_g>=threshold)[0]
+            param_g = param_g[ind]
+        
+        if log==True:
+            bins = np.logspace(np.log10(param_g.min()), np.log10(param_g.max()),num_bins+1)
+        else:
+            bins = np.linspace(param_g.min(), param_g.max(),num_bins+1)
+      
+        y, _ = np.histogram(param_g, bins)
+        # y, x, _ = plt.hist(param_g, bins=bins, log=log, histtype=histtype, label="$f_{}^{}$ = {}".format("{NL}", snaptype_dict[snaptype],fNL_dict[fNL]))
+        
+        plt.plot((bins[1:]+bins[:-1])/2, y, marker='+', label="$f_{}^{}$ = {}".format("{NL}", snaptype_dict[snaptype],fNL_dict[fNL]))
+        
+    plt.legend()
+    
+    plt.title("z={}".format(round(z,1)))
+    if log==True:
+        plt.loglog()
+    plt.xlabel(xlabel)
+    plt.ylabel("Frequency")
+    
+
+def plot_hist_all(datadir, snaptype_list=['EQ', 'LC', 'OR_CMB', 'OR_LSS'], snapnum_list=[2, 18, 32, 90], parameter='', xlabel='', threshold=0, num_bins=100, log=False, histtype='step'):
+    
+    """
+    snaptype : {'EQ':"equil", 'LC':"local", 'OR_CMB':"ortho-CMB", 'OR_LSS':"ortho-LSS"}
+    
+    binning : {'log', 'linear'}
+    """
+    snaptype_dict={'EQ':"{equil}", 'LC':"{local}", 'OR_CMB':"{ortho-CMB}", 'OR_LSS':"{ortho-LSS}"}
+    
+    figure, axis = plt.subplots(len(snapnum_list)//2,2,figsize=(15,5*len(snapnum_list)//2))
+    for ind, snapnum in enumerate(snapnum_list):
+        a=np.loadtxt("../times_extended.txt")[snapnum]
+        z=1/a-1
+        
+        for snaptype in snaptype_list:
+            if snaptype=='LC':
+                fNL_dict={'200':200, '0':0, 'n200':-200}
+            else:
+                fNL_dict={'200':200, 'n200':-200}
+
+            for fNL in fNL_dict:
+                if fNL=='0':
+                    snapdir = datadir+"1P_LC_0_50/" #folder hosting the catalogue
+                else:    
+                    snapdir = datadir+"1P_"+snaptype+"_"+fNL+"_50/" #folder hosting the catalogue
+
+                param_g=np.array([])
+                for i in range(16):
+                    # catalog name
+                    catalog = snapdir+'groups_'+str(snapnum).zfill(3)+'/fof_subhalo_tab_'+str(snapnum).zfill(3)+'.'+str(i)+'.hdf5'
+
+                    # open the catalogue
+                    f = h5py.File(catalog, 'r')
+                    param = f[parameter][()]         
+                    param_g=np.hstack([param_g,param])
+
+                    # close file
+                    f.close()
+
+                if threshold:
+                    ind = np.where(param_g>=threshold)[0]
+                    param_g = param_g[ind]
+
+                if log==True:
+                    bins = np.logspace(np.log10(param_g.min()), np.log10(param_g.max()),num_bins+1)
+                else:
+                    bins = np.linspace(param_g.min(), param_g.max(),num_bins+1)
+                    
+                axis[ind//2, ind%2].hist(param_g, bins=bins, log=log, histtype=histtype, label="$f_{}^{}$ = {}".format("{NL}", snaptype_dict[snaptype],fNL_dict[fNL]));
+
+            
+
+        axis[ind//2, ind%2].set_title("z={}".format(round(z,1)))
+        if log==True: 
+            axis[ind//2, ind%2].set_xscale('log')
+        axis[ind//2, ind%2].set_xlabel(xlabel)
+        axis[ind//2, ind%2].set_ylabel("Frequency")
+
+    axis[ind//2, ind%2].legend()
+    
+            
+            
+def any_relation(snapdir, snapnum=90, parameters=['Subhalo/SubhaloMass','Subhalo/SubhaloGasMetallicity'], binning='log', num_bins=50):
+    """
+    binning : {'log', 'linear'}
+    """
+    
+    # Reading and storing Stellar and Halo masses from all the catalogs in array
+    param_1=np.array([])
+    param_2=np.array([])
+
+    for i in range(16):
+        # catalog name
+        catalog = snapdir+'groups_'+str(snapnum).zfill(3)+'/fof_subhalo_tab_'+str(snapnum).zfill(3)+'.'+str(i)+'.hdf5'
+
+        # open the catalogue
+        f = h5py.File(catalog, 'r')
+
+        
+        param1 = f[parameters[0]][:]
+        param2 = f[parameters[1]][:]
+
+        param_1=np.hstack([param_1,param1])
+        param_2=np.hstack([param_2, param2])
+
+        # close file
+        f.close()
+        
+    
+    # Creating Halo mass bins
+    if binning=='log':
+        print(param_1.min(), param_1.max())
+        bins = np.logspace(np.log10(param_1.min()), np.log10(param_1.max()),num_bins+1) # Halo mass bins
+    elif binning=='linear':
+        bins = np.linspace(param_1.min(), param_1.max(),num_bins+1) # Halo mass bins
+
+    index = np.digitize(param_1, bins) # digitize starts with 1
+    # np.bincount(index) starts with bincount from index=0, thus remove the first one 
+    if index.max()==num_bins+1:
+        param_2_avg = np.bincount(index, param_2, minlength=num_bins+2)[1:-1]/np.bincount(index)[1:-1]
+        bins = (bins[1:]+bins[:-1])/2                                 # mean pos of Halo mass bins
+    else:
+        param_2_avg = np.bincount(index, param_2, minlength=index.max()+1)[1:]/np.bincount(index)[1:] 
+        bins = (bins[1:(index.max()+1)]+bins[:index.max()])/2         # mean pos of Halo mass bins
+
+    
+    # Remove indices where there is no halo in some mass bin 
+    bins = np.delete(bins,np.argwhere(np.isnan(param_2_avg)))
+    param_2_avg = np.delete(param_2_avg,np.argwhere(np.isnan(param_2_avg)))
+    
+    return bins, param_2_avg, param_1, param_2
+
+
+def plot_any_relation_all(datadir, snaptype_list=['EQ', 'LC', 'OR_CMB', 'OR_LSS'], snapnum_list=[2, 18, 32, 90], parameters=[], label=[], binning='log', bins=100):
+    
+    """
+    snaptype : {'EQ':"equil", 'LC':"local", 'OR_CMB':"ortho-CMB", 'OR_LSS':"ortho-LSS"}
+    
+    binning : {'log', 'linear'}
+    """
+    snaptype_dict={'EQ':"{equil}", 'LC':"{local}", 'OR_CMB':"{ortho-CMB}", 'OR_LSS':"{ortho-LSS}"}
+    
+    figure, axis = plt.subplots(len(snapnum_list)//2,2,figsize=(15,5*len(snapnum_list)//2))
+    for ind, snapnum in enumerate(snapnum_list):
+        a=np.loadtxt("../times_extended.txt")[snapnum]
+        z=1/a-1
+        
+        for snaptype in snaptype_list:
+            if snaptype=='LC':
+                fNL_dict={'200':200, '0':0, 'n200':-200}
+            else:
+                fNL_dict={'200':200, 'n200':-200}
+
+            for fNL in fNL_dict:
+                if fNL=='0':
+                    snapdir = datadir+"1P_LC_0_50/" #folder hosting the catalogue
+                else:    
+                    snapdir = datadir+"1P_"+snaptype+"_"+fNL+"_50/" #folder hosting the catalogue
+
+                bins, param_2_avg, _, _ = any_relation(snapdir, snapnum, parameters, binning, bins)
+                
+                plt.loglog(bins, param_2_avg, label="$f_{}^{}$ = {}".format("{NL}", snaptype_dict[snaptype],fNL_dict[fNL]))
+
+        axis[ind//2, ind%2].set_title("z={}".format(round(z,1)))
+        axis[ind//2, ind%2].set_xlabel(label[0])
+        axis[ind//2, ind%2].set_ylabel(label[0])
+
+    axis[ind//2, ind%2].legend()
